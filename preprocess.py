@@ -1,6 +1,7 @@
 import cv2
 import numpy as np
 
+
 # get grayscale image
 def get_grayscale(image):
     return cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
@@ -58,3 +59,42 @@ def deskew(image):
 # template matching
 def match_template(image, template):
     return cv2.matchTemplate(image, template, cv2.TM_CCOEFF_NORMED)
+
+
+def biFilter(image):
+    params = [(11, 21, 7), (11, 41, 21), (11, 61, 39)]
+
+    # loop over the diameter, sigma color, and sigma space
+    for (diameter, sigmaColor, sigmaSpace) in params:
+        # apply bilateral filtering to the image using the current set of
+        # parameters
+        blurred = cv2.bilateralFilter(image, diameter, sigmaColor, sigmaSpace)
+
+        # show the output image and associated parameters
+        title = "Blurred d={}, sc={}, ss={}".format(
+            diameter, sigmaColor, sigmaSpace)
+        return blurred
+        # cv2.imshow(title, blurred)
+        # cv2.waitKey(0)
+
+
+def sharpen(image, kernelIndex=6):
+    kernels = [
+        np.array([[0, -1, 0], [-1, 4, -1], [0, -1, 0]]),
+        np.array([[-1, -1, -1], [-1, 8, -1], [-1, -1, -1]]),
+        np.array([[0, -1, 0], [-1, 5, -1], [0, -1, 0]]),
+        (1 / 9) * np.array([[1, 1, 1], [1, 1, 1], [1, 1, 1]]),
+        (1 / 16) * np.array([[1, 2, 1], [2, 4, 2], [1, 2, 1]]),
+        (1 / 256) * np.array([[1, 4, 6, 4, 1], [4, 16, 24, 16, 4], [6, 24, 36, 24, 6], [4, 16, 24, 16, 4],
+                             [1, 4, 6, 4, 1]]),
+        (-1 / 256) * np.array([[1, 4, 6, 4, 1], [4, 16, 24, 16, 4], [6, 24, -476, 24, 6], [4, 16, 24, 16, 4],
+                              [1, 4, 6, 4, 1]])
+    ]
+
+    # for index, kernel in enumerate(kernels):
+    #     sharpen_kernel = kernel
+    #     sharpen = cv2.filter2D(image, -1, sharpen_kernel)
+    #     cv2.imshow(str(index), sharpen)
+    #     cv2.waitKey(0)
+    sharpen = cv2.filter2D(image, -1, kernels[kernelIndex])
+    return sharpen
