@@ -1,5 +1,5 @@
 # import the necessary packages
-import math
+import re
 import sys
 
 import numpy
@@ -20,20 +20,68 @@ def getNumOnly(s):
     return numeric_string
 
 
+def isIndex(item):
+    return re.search("^\d{2}$", item)
+
+
 def removeExcess(item):
-    splitedItem = item.split(':')
-    if len(splitedItem) > 1:
-        return getNumOnly(splitedItem[0]) + ":" + getNumOnly(splitedItem[1])
+    if isIndex(item):
+        return item
     else:
-        return None
+        splitedItem = item.split(':')
+        if len(item) > 1 and len(splitedItem) > 1:
+            return getNumOnly(splitedItem[0]) + ":" + getNumOnly(splitedItem[1])
+        else:
+            return None
+
+
+def preprocessImage(img):
+    # img = cv2.blur(img, (5,5))
+    img = cv2.GaussianBlur(img, (5, 5), 0)
+    # img = preprocess.biFilter(img)
+
+    return img
 
 
 def getTextFromImage(imageName, config="--psm 12"):
     img = cv2.imread(imageName)
-    d = pytesseract.image_to_data(img, output_type=Output.DICT, config=config)
-    actualText = list(map(removeExcess, d['text']))
-    actualText = list(filter(None, actualText))
-    return actualText
+    img = img[550: -300, 1200: -265]
+    img = preprocessImage(img)
+    d = pytesseract.image_to_data(img, output_type=Output.DATAFRAME, config=config)
+    cv2.imshow('image', img)
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
+    d = d[d.text.notnull()]
+    tops = d['top'].values
+    trios = []
+    for i in range(len(tops)):
+        # print('tops i is :' + str(tops[i]))
+        closeVals = d[d['top'].apply(np.isclose, b=tops[i], atol=40) == True];
+        topVals = closeVals['top'].values
+        if len(closeVals[['top', 'text']]) > 0:
+            # print(closeVals[['top', 'text']])
+            if len(closeVals['text'].values) >= 3:
+                trios.append(closeVals['text'].values)
+        d = d[d['top'].isin(topVals) == False]
+    return processData(trios)
+    # actualText = list(map(removeExcess, d['text']))
+    # actualText = list(filter(None, actualText))
+    # return actualText
+
+
+def cleanTrio(trio):
+    rtrio = list(map(removeExcess, trio))
+    rtrio = list(filter(None, rtrio))
+    print(rtrio)
+    return rtrio
+
+
+def processData(trios):
+    data = []
+    for i in range(len(trios)):
+        finalTrio = cleanTrio(trios[i])
+        data.append(finalTrio)
+    return data
 
 
 def fixListOrder(list):
@@ -44,12 +92,17 @@ def fixListOrder(list):
 
     return list
 
+
 def exportToTxt(textList):
     file = open("hoursResults.txt", "w")
     text = ""
-    for i in range(0, len(textList), 2):
-        text += textList[i+1] + "-" + textList[i]
-        if i < len(textList) - 2:
+    # for i in range(0, len(textList), 2):
+    #     text += textList[i + 1] + "-" + textList[i]
+    #     if i < len(textList) - 2:
+    #         text += "\n"
+    for i in range(0, len(textList)):
+        text += f"{textList[i][2]}={textList[i][1]}-{textList[i][0]}"
+        if i < len(textList) - 1:
             text += "\n"
 
     file.write(text)
@@ -142,5 +195,5 @@ if __name__ == '__main__':
     print('===========================================================================================================')
     exportToTxt(imgText)
     # print('===========================================================================================================')
-    # # cropAndExtract(filePath)
+    # cropAndExtract(filePath)
     # getBoxes(filePath, show=True, filters=[preprocess.biFilter, preprocess.sharpen])
